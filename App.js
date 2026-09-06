@@ -41,11 +41,11 @@ const useProjectStore = create(
       projects: [
         {
           id: '1',
-          title: 'Dashboard Filiais',
-          owner: 'Luciano Korn',
-          priority: 'Alta',
-          dueDate: '15/10/2026',
-          description: 'Estrutura gerencial do painel de filiais.',
+          title: 'Dashboard filiais',
+          owner: 'Luciano',
+          priority: 'Média',
+          dueDate: '30/09/2026',
+          description: 'Definir dashboard das filiais',
           notes: 'Verificar conexão com o banco de dados e APIs.',
           status: 'Em Andamento',
           tasks: [
@@ -59,6 +59,17 @@ const useProjectStore = create(
               completed: false,
             },
           ],
+        },
+        {
+          id: '2',
+          title: 'Rateio parceiros',
+          owner: 'Leonardo',
+          priority: 'Alta',
+          dueDate: '11/09/2026',
+          description: '',
+          notes: '',
+          status: 'Pendente',
+          tasks: [],
         },
       ],
 
@@ -161,7 +172,7 @@ const useProjectStore = create(
         })),
     }),
     {
-      name: 'monday-projects-v9',
+      name: 'monday-projects-v10',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
@@ -169,20 +180,32 @@ const useProjectStore = create(
 
 const Stack = createNativeStackNavigator();
 
+// --- CORES DE PRIORIDADE ---
 const getPriorityStyle = (priority) => {
   switch (priority) {
-    case 'Alta': return { bg: '#FEE2E2', text: '#DC2626' };
-    case 'Média': return { bg: '#FEF3C7', text: '#D97706' };
-    default: return { bg: '#D1FAE5', text: '#059669' };
+    case 'Alta': return { bg: '#FEE2E2', text: '#DC2626', border: '#EF4444' };
+    case 'Média': return { bg: '#FEF3C7', text: '#D97706', border: '#F59E0B' };
+    default: return { bg: '#D1FAE5', text: '#059669', border: '#10B981' };
   }
 };
 
-const getStatusColor = (status) => {
+// --- CORES DE STATUS ---
+const getStatusBadge = (status) => {
   switch (status) {
-    case 'Concluído': return '#10B981';
-    case 'Em Andamento': return '#2563EB';
-    default: return '#D97706';
+    case 'Concluído': return { bg: '#D1FAE5', text: '#059669' };
+    case 'Em Andamento': return { bg: '#DBEAFE', text: '#2563EB' };
+    default: return { bg: '#FFEDD5', text: '#EA580C' };
   }
+};
+
+// --- FUNÇÃO PARA CONVERTER DATA "DD/MM/AAAA" PARA SORT ---
+const parseDateString = (dateStr) => {
+  if (!dateStr || !dateStr.includes('/')) return new Date(2099, 11, 31);
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+  }
+  return new Date(2099, 11, 31);
 };
 
 // --- TELA PRINCIPAL ---
@@ -201,7 +224,11 @@ function HomeScreen({ navigation }) {
     requestNotificationPermissions();
   }, []);
 
-  const activeProjects = projects.filter((p) => p.status !== 'Concluído');
+  // Filtrar e ordenar por prazo mais próximo
+  const activeProjects = projects
+    .filter((p) => p.status !== 'Concluído')
+    .sort((a, b) => parseDateString(a.dueDate) - parseDateString(b.dueDate));
+
   const allActiveTasks = activeProjects.flatMap((p) => p.tasks);
   const completedActiveTasks = allActiveTasks.filter((t) => t.completed).length;
   const totalActiveTasks = allActiveTasks.length;
@@ -263,10 +290,11 @@ function HomeScreen({ navigation }) {
         ) : (
           activeProjects.map((item) => {
             const pStyle = getPriorityStyle(item.priority);
+            const sBadge = getStatusBadge(item.status);
             return (
               <TouchableOpacity
                 key={item.id}
-                style={styles.card}
+                style={[styles.card, { borderLeftColor: pStyle.border, borderLeftWidth: 6 }]}
                 onPress={() => navigation.navigate('ProjectDetails', { projectId: item.id })}
                 activeOpacity={0.8}
               >
@@ -279,7 +307,15 @@ function HomeScreen({ navigation }) {
                   </View>
                 </View>
 
-                <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
+                <View style={styles.cardSubHeaderRow}>
+                  <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
+                  <View style={[styles.badgeStatus, { backgroundColor: sBadge.bg }]}>
+                    <Text style={[styles.badgeStatusText, { color: sBadge.text }]}>
+                      {item.status}
+                    </Text>
+                  </View>
+                </View>
+
                 {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
 
                 <View style={styles.cardFooter}>
@@ -328,7 +364,7 @@ function HomeScreen({ navigation }) {
                       key={p}
                       style={[
                         styles.priorityBtn,
-                        isSelected && { backgroundColor: pStyle.bg, borderColor: pStyle.text },
+                        isSelected && { backgroundColor: pStyle.bg, borderColor: pStyle.border },
                       ]}
                       onPress={() => setPriority(p)}
                     >
@@ -389,17 +425,53 @@ function HomeScreen({ navigation }) {
   );
 }
 
-// --- TELA DE HISTÓRICO ---
+// --- TELA DE HISTÓRICO MENSAL ESTILO APP EXERCÍCIOS ---
 function HistoryScreen({ navigation }) {
   const { projects } = useProjectStore();
-  const completedProjects = projects.filter((p) => p.status === 'Concluído');
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  const monthsList = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const changeMonth = (direction) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + direction);
+    setCurrentDate(newDate);
+  };
+
+  const currentMonthName = monthsList[currentDate.getMonth()];
+  const currentYear = currentDate.getFullYear();
+
+  // Filtrar concluídos do mês selecionado
+  const completedProjects = projects.filter((p) => {
+    if (p.status !== 'Concluído') return false;
+    const pDate = parseDateString(p.dueDate);
+    return (
+      pDate.getMonth() === currentDate.getMonth() &&
+      pDate.getFullYear() === currentDate.getFullYear()
+    );
+  });
+
   const allCompletedTasks = completedProjects.flatMap((p) => p.tasks);
   const totalFinishedTasks = allCompletedTasks.filter((t) => t.completed).length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollPadding}>
+      {/* SELETOR DE MÊS ESTILO EXERCÍCIO */}
+      <View style={styles.monthSelectorRow}>
+        <TouchableOpacity style={styles.monthArrowBtn} onPress={() => changeMonth(-1)}>
+          <Text style={styles.monthArrowText}>◀</Text>
+        </TouchableOpacity>
+        <Text style={styles.monthTitleText}>{`${currentMonthName} ${currentYear}`}</Text>
+        <TouchableOpacity style={styles.monthArrowBtn} onPress={() => changeMonth(1)}>
+          <Text style={styles.monthArrowText}>▶</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.metricsCardHistory}>
-        <Text style={styles.metricsTitleHistory}>📊 Métricas de Execução & Histórico</Text>
+        <Text style={styles.metricsTitleHistory}>📊 Métricas do Mês</Text>
         <View style={styles.metricsGrid}>
           <View style={styles.metricItem}>
             <Text style={styles.metricValueHistory}>{completedProjects.length}</Text>
@@ -407,15 +479,15 @@ function HistoryScreen({ navigation }) {
           </View>
           <View style={styles.metricItem}>
             <Text style={styles.metricValueHistory}>{totalFinishedTasks}</Text>
-            <Text style={styles.metricLabel}>Subtarefas Finalizadas</Text>
+            <Text style={styles.metricLabel}>Subtarefas Concluídas</Text>
           </View>
         </View>
       </View>
 
-      <Text style={styles.sectionMainTitle}>Projetos Encerrados</Text>
+      <Text style={styles.sectionMainTitle}>Projetos Encerrados no Mês</Text>
 
       {completedProjects.length === 0 ? (
-        <Text style={styles.emptyText}>Nenhum projeto finalizado no histórico.</Text>
+        <Text style={styles.emptyText}>Nenhum projeto encerrado em {currentMonthName}.</Text>
       ) : (
         completedProjects.map((item) => (
           <TouchableOpacity
@@ -430,7 +502,7 @@ function HistoryScreen({ navigation }) {
               </View>
             </View>
             <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
-            <Text style={styles.cardDescription}>{item.description}</Text>
+            {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
             <View style={styles.cardFooter}>
               <Text style={styles.cardFooterText}>Prazo: {item.dueDate}</Text>
               <Text style={styles.cardFooterText}>{item.tasks.length} subtarefas</Text>
@@ -566,14 +638,14 @@ function ProjectDetailsScreen({ route, navigation }) {
                   key={p}
                   style={[
                     styles.priorityBtn,
-                    isSelected && { backgroundColor: pStyle.bg, borderColor: pStyle.text },
+                    isSelected && { backgroundColor: pStyle.bg, borderColor: pStyle.border },
                   ]}
                   onPress={() => setProjPriority(p)}
                 >
                   <Text style={[styles.priorityBtnText, isSelected && { color: pStyle.text, fontWeight: 'bold' }]}>{p}</Text>
                 </TouchableOpacity>
               );
-                                                     })}
+            })}
           </View>
 
           <Text style={styles.fieldLabel}>Prazo Geral:</Text>
@@ -612,15 +684,19 @@ function ProjectDetailsScreen({ route, navigation }) {
 
       <Text style={styles.sectionMainTitle}>Status do Projeto</Text>
       <View style={styles.statusSegmented}>
-        {['Pendente', 'Em Andamento', 'Concluído'].map((st) => (
-          <TouchableOpacity
-            key={st}
-            style={[styles.segmentBtn, project.status === st && { backgroundColor: getStatusColor(st) }]}
-            onPress={() => updateProjectStatus(project.id, st)}
-          >
-            <Text style={[styles.segmentText, project.status === st && { color: '#FFFFFF', fontWeight: 'bold' }]}>{st}</Text>
-          </TouchableOpacity>
-        ))}
+        {['Pendente', 'Em Andamento', 'Concluído'].map((st) => {
+          const sBadge = getStatusBadge(st);
+          const isSelected = project.status === st;
+          return (
+            <TouchableOpacity
+              key={st}
+              style={[styles.segmentBtn, isSelected && { backgroundColor: sBadge.bg }]}
+              onPress={() => updateProjectStatus(project.id, st)}
+            >
+              <Text style={[styles.segmentText, isSelected && { color: sBadge.text, fontWeight: 'bold' }]}>{st}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <Text style={styles.sectionMainTitle}>Adicionar Subtarefa</Text>
@@ -755,7 +831,7 @@ export default function App() {
           screenOptions={{
             headerStyle: { backgroundColor: '#FAFAFA' },
             headerTintColor: '#1F2937',
-            headerTitleStyle: { fontWeight: '700', fontSize: 19 },
+            headerTitleStyle: { fontWeight: '800', fontSize: 21 },
             headerTitleAlign: 'center',
             contentStyle: { backgroundColor: '#F3F4F6' },
           }}
@@ -769,7 +845,7 @@ export default function App() {
   );
 }
 
-// --- ESTILOS COM ELEVAÇÃO E CONTRASTE MELHORADOS ---
+// --- ESTILOS VISUAIS REFINADOS ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   scrollPadding: { padding: 16 },
@@ -813,8 +889,24 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 13, color: '#4B5563', marginTop: 2, fontWeight: '500' },
 
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionMainTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginVertical: 10 },
+  sectionMainTitle: { fontSize: 19, fontWeight: '800', color: '#111827', marginVertical: 10 },
   historyLinkText: { fontSize: 14, color: '#2563EB', fontWeight: '700' },
+
+  monthSelectorRow: {
+    flexDirection: 'row',
+    justify: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 2,
+  },
+  monthArrowBtn: { paddingHorizontal: 12, paddingVertical: 4 },
+  monthArrowText: { fontSize: 16, color: '#2563EB', fontWeight: 'bold' },
+  monthTitleText: { fontSize: 17, fontWeight: '800', color: '#111827' },
 
   card: {
     backgroundColor: '#FFFFFF',
@@ -830,14 +922,18 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: '#111827', flex: 1 },
-  cardOwnerText: { fontSize: 14, color: '#374151', marginTop: 6, fontWeight: '600' },
-  cardDescription: { fontSize: 14, color: '#4B5563', marginTop: 4, lineHeight: 20 },
+  cardTitle: { fontSize: 20, fontWeight: '800', color: '#111827', flex: 1 },
+  cardSubHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  cardOwnerText: { fontSize: 14, color: '#374151', fontWeight: '600' },
+  cardDescription: { fontSize: 14, color: '#4B5563', marginTop: 6, lineHeight: 20 },
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   cardFooterText: { fontSize: 13, color: '#4B5563', fontWeight: '500' },
 
   badgePriority: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   badgePriorityText: { fontSize: 13, fontWeight: '800' },
+
+  badgeStatus: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgeStatusText: { fontSize: 12, fontWeight: '700' },
 
   softBadgeConcluded: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   softBadgeTextConcluded: { fontSize: 13, color: '#065F46', fontWeight: '700' },
@@ -958,8 +1054,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 19, fontWeight: '700', color: '#111827', marginBottom: 14 },
   modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
 
-  projectTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
+  projectTitle: { fontSize: 26, fontWeight: '800', color: '#111827' },
   projectDescription: { fontSize: 15, color: '#374151', marginTop: 6, lineHeight: 22 },
   projectDueDate: { fontSize: 14, color: '#111827', fontWeight: '600', marginTop: 8 },
 });
-        
