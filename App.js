@@ -3,7 +3,6 @@ import {
   StyleSheet,
   Text,
   View,
-  FlatList,
   TouchableOpacity,
   TextInput,
   Modal,
@@ -29,14 +28,12 @@ Notifications.setNotificationHandler({
 
 async function requestNotificationPermissions() {
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
   if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
+    await Notifications.requestPermissionsAsync();
   }
 }
 
-// --- STORE ZUSTAND ---
+// --- STORE ZUSTAND MONDAY COMPLETO ---
 const useProjectStore = create(
   persist(
     (set) => ({
@@ -46,8 +43,8 @@ const useProjectStore = create(
           title: 'Dashboard Filiais',
           owner: 'Luciano Korn',
           priority: 'Alta',
-          description: 'Estrutura gerencial do painel',
           dueDate: '15/10/2026',
+          description: 'Estrutura gerencial do painel de filiais.',
           notes: 'Verificar conexão com o banco de dados e APIs.',
           status: 'Em Andamento',
           tasks: [
@@ -57,7 +54,7 @@ const useProjectStore = create(
               assignee: 'Luciano',
               dueDate: '06/10/2026',
               dueTime: '10:00',
-              notes: 'Usar estilo minimalista suave',
+              notes: 'Usar estilo minimalista claro',
               completed: false,
             },
           ],
@@ -80,6 +77,13 @@ const useProjectStore = create(
               notes: newProject.notes || '',
             },
           ],
+        })),
+
+      updateProject: (id, updatedFields) =>
+        set((state) => ({
+          projects: state.projects.map((p) =>
+            p.id === id ? { ...p, ...updatedFields } : p
+          ),
         })),
 
       removeProject: (id) =>
@@ -156,7 +160,7 @@ const useProjectStore = create(
         })),
     }),
     {
-      name: 'projects-complete-modal-light-v1',
+      name: 'monday-projects-full-v5',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
@@ -172,12 +176,19 @@ const getPriorityColor = (priority) => {
   }
 };
 
-// --- TELA PRINCIPAL ---
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'Concluído': return '#10B981';
+    case 'Em Andamento': return '#3B82F6';
+    default: return '#F59E0B';
+  }
+};
+
+// --- TELA PRINCIPAL (APENAS PROJETOS ATIVOS) ---
 function HomeScreen({ navigation }) {
   const { projects, addProject } = useProjectStore();
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Campos do Modal Completo
   const [title, setTitle] = useState('');
   const [owner, setOwner] = useState('');
   const [priority, setPriority] = useState('Média');
@@ -190,11 +201,10 @@ function HomeScreen({ navigation }) {
   }, []);
 
   const activeProjects = projects.filter((p) => p.status !== 'Concluído');
-
-  const allTasks = activeProjects.flatMap((p) => p.tasks);
-  const completedTasksCount = allTasks.filter((t) => t.completed).length;
-  const totalTasksCount = allTasks.length;
-  const progressPercentage = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+  const allActiveTasks = activeProjects.flatMap((p) => p.tasks);
+  const completedActiveTasks = allActiveTasks.filter((t) => t.completed).length;
+  const totalActiveTasks = allActiveTasks.length;
+  const activeProgress = totalActiveTasks > 0 ? Math.round((completedActiveTasks / totalActiveTasks) * 100) : 0;
 
   const handleCreate = () => {
     if (title.trim()) {
@@ -219,24 +229,23 @@ function HomeScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollPadding}>
-        {/* Painel de Métricas */}
         <View style={styles.metricsCard}>
-          <Text style={styles.metricsTitle}>Desempenho Geral</Text>
+          <Text style={styles.metricsTitle}>Progresso dos Projetos Ativos</Text>
           <View style={styles.progressBarBackground}>
-            <View style={[styles.progressBarFill, { width: `${progressPercentage}%` }]} />
+            <View style={[styles.progressBarFill, { width: `${activeProgress}%` }]} />
           </View>
           <Text style={styles.progressText}>
-            {progressPercentage}% das tarefas concluídas ({completedTasksCount}/{totalTasksCount})
+            {activeProgress}% concluído ({completedActiveTasks}/{totalActiveTasks} subtarefas)
           </Text>
 
           <View style={styles.metricsGrid}>
             <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{allTasks.length}</Text>
-              <Text style={styles.metricLabel}>Tarefas Ativas</Text>
+              <Text style={styles.metricValue}>{activeProjects.length}</Text>
+              <Text style={styles.metricLabel}>Em Andamento</Text>
             </View>
             <View style={styles.metricItem}>
-              <Text style={styles.metricValue}>{activeProjects.length}</Text>
-              <Text style={styles.metricLabel}>Projetos</Text>
+              <Text style={styles.metricValue}>{totalActiveTasks}</Text>
+              <Text style={styles.metricLabel}>Subtarefas</Text>
             </View>
           </View>
         </View>
@@ -244,43 +253,46 @@ function HomeScreen({ navigation }) {
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionMainTitle}>Projetos Ativos</Text>
           <TouchableOpacity onPress={() => navigation.navigate('History')}>
-            <Text style={styles.historyLinkText}>Ver Histórico ›</Text>
+            <Text style={styles.historyLinkText}>Ver Histórico Encerrados ›</Text>
           </TouchableOpacity>
         </View>
 
-        {activeProjects.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={styles.card}
-            onPress={() => navigation.navigate('ProjectDetails', { projectId: item.id })}
-            activeOpacity={0.8}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <View style={[styles.badgePriority, { backgroundColor: getPriorityColor(item.priority) + '18' }]}>
-                <Text style={[styles.badgePriorityText, { color: getPriorityColor(item.priority) }]}>
-                  {item.priority}
-                </Text>
+        {activeProjects.length === 0 ? (
+          <Text style={styles.emptyText}>Nenhum projeto em andamento no momento.</Text>
+        ) : (
+          activeProjects.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.card}
+              onPress={() => navigation.navigate('ProjectDetails', { projectId: item.id })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <View style={[styles.badgePriority, { backgroundColor: getPriorityColor(item.priority) + '18' }]}>
+                  <Text style={[styles.badgePriorityText, { color: getPriorityColor(item.priority) }]}>
+                    {item.priority}
+                  </Text>
+                </View>
               </View>
-            </View>
 
-            <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
+              <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
+              {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
 
-            {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
-
-            <View style={styles.cardFooter}>
-              <Text style={styles.cardFooterText}>🗓 Prazo: {item.dueDate}</Text>
-              <Text style={styles.cardFooterText}>{item.tasks.length} tarefas</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+              <View style={styles.cardFooter}>
+                <Text style={styles.cardFooterText}>🗓 Prazo: {item.dueDate}</Text>
+                <Text style={styles.cardFooterText}>{item.tasks.length} subtarefas</Text>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
       </ScrollView>
 
       <TouchableOpacity style={styles.fab} onPress={() => setModalVisible(true)} activeOpacity={0.85}>
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* MODAL COMPLETO DE CRIAÇÃO */}
+      {/* MODAL MONDAY COMPLETO DE CRIAÇÃO */}
       <Modal visible={modalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
@@ -365,15 +377,33 @@ function HomeScreen({ navigation }) {
   );
 }
 
-// --- TELA DE HISTÓRICO ---
+// --- TELA DE HISTÓRICO COM MÉTRICAS ---
 function HistoryScreen({ navigation }) {
   const { projects } = useProjectStore();
   const completedProjects = projects.filter((p) => p.status === 'Concluído');
+  const allCompletedTasks = completedProjects.flatMap((p) => p.tasks);
+  const totalFinishedTasks = allCompletedTasks.filter((t) => t.completed).length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollPadding}>
+      <View style={styles.metricsCardHistory}>
+        <Text style={styles.metricsTitleHistory}>📊 Métricas de Execução & Histórico</Text>
+        <View style={styles.metricsGrid}>
+          <View style={styles.metricItem}>
+            <Text style={styles.metricValueHistory}>{completedProjects.length}</Text>
+            <Text style={styles.metricLabel}>Projetos Entregues</Text>
+          </View>
+          <View style={styles.metricItem}>
+            <Text style={styles.metricValueHistory}>{totalFinishedTasks}</Text>
+            <Text style={styles.metricLabel}>Subtarefas Finalizadas</Text>
+          </View>
+        </View>
+      </View>
+
+      <Text style={styles.sectionMainTitle}>Projetos Encerrados</Text>
+
       {completedProjects.length === 0 ? (
-        <Text style={styles.emptyText}>Nenhum projeto encerrado no histórico.</Text>
+        <Text style={styles.emptyText}>Nenhum projeto finalizado no histórico.</Text>
       ) : (
         completedProjects.map((item) => (
           <TouchableOpacity
@@ -387,7 +417,12 @@ function HistoryScreen({ navigation }) {
                 <Text style={styles.softBadgeTextConcluded}>Concluído</Text>
               </View>
             </View>
+            <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
             <Text style={styles.cardDescription}>{item.description}</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardFooterText}>Prazo: {item.dueDate}</Text>
+              <Text style={styles.cardFooterText}>{item.tasks.length} subtarefas</Text>
+            </View>
           </TouchableOpacity>
         ))
       )}
@@ -395,11 +430,19 @@ function HistoryScreen({ navigation }) {
   );
 }
 
-// --- TELA DE DETALHES ---
+// --- TELA DE DETALHES, EDIÇÃO DE PROJETO E EDIÇÃO DE SUBTAREFAS ---
 function ProjectDetailsScreen({ route, navigation }) {
   const { projectId } = route.params;
   const project = useProjectStore((state) => state.projects.find((p) => p.id === projectId));
-  const { removeProject, updateProjectStatus, addTask, toggleTask, removeTask, updateTask } = useProjectStore();
+  const { updateProject, removeProject, updateProjectStatus, addTask, toggleTask, removeTask, updateTask } = useProjectStore();
+
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [projTitle, setProjTitle] = useState('');
+  const [projOwner, setProjOwner] = useState('');
+  const [projPriority, setProjPriority] = useState('Média');
+  const [projDueDate, setProjDueDate] = useState('');
+  const [projDescription, setProjDescription] = useState('');
+  const [projNotes, setProjNotes] = useState('');
 
   const [taskText, setTaskText] = useState('');
   const [assignee, setAssignee] = useState('');
@@ -409,7 +452,32 @@ function ProjectDetailsScreen({ route, navigation }) {
 
   const [editingTask, setEditingTask] = useState(null);
 
+  useEffect(() => {
+    if (project) {
+      setProjTitle(project.title);
+      setProjOwner(project.owner || '');
+      setProjPriority(project.priority || 'Média');
+      setProjDueDate(project.dueDate || '');
+      setProjDescription(project.description || '');
+      setProjNotes(project.notes || '');
+    }
+  }, [project]);
+
   if (!project) return null;
+
+  const handleSaveProjectEdits = () => {
+    if (projTitle.trim()) {
+      updateProject(project.id, {
+        title: projTitle.trim(),
+        owner: projOwner.trim(),
+        priority: projPriority,
+        dueDate: projDueDate.trim(),
+        description: projDescription.trim(),
+        notes: projNotes.trim(),
+      });
+      setIsEditingProject(false);
+    }
+  };
 
   const handleAddTask = () => {
     if (taskText.trim()) {
@@ -431,138 +499,58 @@ function ProjectDetailsScreen({ route, navigation }) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollPadding}>
-      <Text style={styles.projectTitle}>{project.title}</Text>
-      <Text style={styles.cardOwnerText}>👤 Responsável: {project.owner}</Text>
-      {project.description ? <Text style={styles.projectDescription}>{project.description}</Text> : null}
-      <Text style={styles.projectDueDate}>🗓 Prazo Geral: {project.dueDate}</Text>
-
-      {project.notes ? (
-        <View style={styles.notesContainer}>
-          <Text style={styles.notesTitle}>Anotações Gerais / Links:</Text>
-          <Text style={styles.notesBody}>{project.notes}</Text>
-        </View>
-      ) : null}
-
-      {/* Seletor de Status */}
-      <View style={styles.statusSegmented}>
-        {['Pendente', 'Em Andamento', 'Concluído'].map((st) => (
-          <TouchableOpacity
-            key={st}
-            style={[styles.segmentBtn, project.status === st && styles.segmentBtnActive]}
-            onPress={() => updateProjectStatus(project.id, st)}
-          >
-            <Text style={[styles.segmentText, project.status === st && styles.segmentTextActive]}>{st}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {/* Form de Tarefa */}
-      <Text style={styles.sectionMainTitle}>Adicionar Tarefa</Text>
-      <View style={styles.cardForm}>
-        <TextInput
-          style={styles.input}
-          placeholder="Descrição da tarefa"
-          placeholderTextColor="#9CA3AF"
-          value={taskText}
-          onChangeText={setTaskText}
-        />
-        <View style={styles.formRow}>
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Responsável"
-            placeholderTextColor="#9CA3AF"
-            value={assignee}
-            onChangeText={setAssignee}
-          />
-          <TextInput
-            style={[styles.input, { flex: 1 }]}
-            placeholder="Data (dd/mm/aaaa)"
-            placeholderTextColor="#9CA3AF"
-            value={taskDueDate}
-            onChangeText={setTaskDueDate}
-          />
-        </View>
-        <TextInput
-          style={styles.input}
-          placeholder="Hora do Alerta (ex: 09:00)"
-          placeholderTextColor="#9CA3AF"
-          value={taskDueTime}
-          onChangeText={setTaskDueTime}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Observações da tarefa"
-          placeholderTextColor="#9CA3AF"
-          value={notes}
-          onChangeText={setNotes}
-        />
-        <TouchableOpacity style={styles.btnPrimary} onPress={handleAddTask}>
-          <Text style={styles.btnPrimaryText}>Guardar Tarefa</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.sectionHeaderTitle}>Painel do Item</Text>
+        <TouchableOpacity
+          style={styles.btnEditToggle}
+          onPress={() => {
+            if (isEditingProject) handleSaveProjectEdits();
+            else setIsEditingProject(true);
+          }}
+        >
+          <Text style={styles.btnEditToggleText}>
+            {isEditingProject ? 'Salvar Projeto' : 'Editar Projeto'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Lista de Tarefas */}
-      <Text style={styles.sectionMainTitle}>Lista de Tarefas</Text>
-      {project.tasks.map((t) => (
-        <View key={t.id} style={styles.taskCardItem}>
-          <TouchableOpacity style={styles.checkCircle} onPress={() => toggleTask(project.id, t.id)}>
-            <Text style={styles.checkIcon}>{t.completed ? '✓' : ''}</Text>
-          </TouchableOpacity>
+      {isEditingProject ? (
+        <View style={styles.editCard}>
+          <Text style={styles.fieldLabel}>Título:</Text>
+          <TextInput style={styles.input} value={projTitle} onChangeText={setProjTitle} />
 
-          <TouchableOpacity style={{ flex: 1 }} onPress={() => setEditingTask(t)}>
-            <Text style={[styles.taskTitle, t.completed && styles.taskCompleted]}>{t.text}</Text>
-            <Text style={styles.taskSubtext}>
-              👤 {t.assignee} {t.dueDate ? `| 🗓 ${t.dueDate} às ${t.dueTime || '09:00'}` : ''}
-            </Text>
-            {t.notes ? <Text style={styles.taskNotesText}>📝 {t.notes}</Text> : null}
-          </TouchableOpacity>
+          <Text style={styles.fieldLabel}>Responsável:</Text>
+          <TextInput style={styles.input} value={projOwner} onChangeText={setProjOwner} />
 
-          <TouchableOpacity onPress={() => removeTask(project.id, t.id)}>
-            <Text style={styles.deleteIconText}>✕</Text>
-          </TouchableOpacity>
+          <Text style={styles.fieldLabel}>Prioridade:</Text>
+          <View style={styles.prioritySelectorRow}>
+            {['Baixa', 'Média', 'Alta'].map((p) => (
+              <TouchableOpacity
+                key={p}
+                style={[styles.priorityBtn, projPriority === p && { backgroundColor: getPriorityColor(p), borderColor: getPriorityColor(p) }]}
+                onPress={() => setProjPriority(p)}
+              >
+                <Text style={[styles.priorityBtnText, projPriority === p && { color: '#FFF', fontWeight: 'bold' }]}>{p}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.fieldLabel}>Prazo Geral:</Text>
+          <TextInput style={styles.input} value={projDueDate} onChangeText={setProjDueDate} />
+
+          <Text style={styles.fieldLabel}>Descrição:</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={projDescription} onChangeText={setProjDescription} multiline numberOfLines={2} />
+
+          <Text style={styles.fieldLabel}>Anotações Gerais / Links:</Text>
+          <TextInput style={[styles.input, styles.textArea]} value={projNotes} onChangeText={setProjNotes} multiline numberOfLines={3} />
         </View>
-      ))}
+      ) : (
+        <View style={styles.viewCard}>
+          <Text style={styles.projectTitle}>{project.title}</Text>
+          <Text style={styles.cardOwnerText}>👤 Responsável: {project.owner}</Text>
+          <Text style={styles.projectDueDate}>🗓 Prazo Geral: {project.dueDate}</Text>
+          {project.description ? <Text style={styles.projectDescription}>{project.description}</Text> : null}
 
-      <TouchableOpacity
-        style={styles.btnOutlineDanger}
-        onPress={() => {
-          removeProject(project.id);
-          navigation.goBack();
-        }}
-      >
-        <Text style={styles.btnOutlineDangerText}>Remover Projeto</Text>
-      </TouchableOpacity>
-
-      {/* Modal Editar Tarefa */}
-      {editingTask && (
-        <Modal visible animationType="slide" transparent>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Editar Tarefa</Text>
-              <TextInput
-                style={styles.input}
-                value={editingTask.text}
-                onChangeText={(text) => setEditingTask({ ...editingTask, text })}
-              />
-              <TextInput
-                style={styles.input}
-                value={editingTask.assignee}
-                onChangeText={(assignee) => setEditingTask({ ...editingTask, assignee })}
-              />
-              <TextInput
-                style={styles.input}
-                value={editingTask.dueDate}
-                onChangeText={(dueDate) => setEditingTask({ ...editingTask, dueDate })}
-              />
-              <TextInput
-                style={styles.input}
-                value={editingTask.notes}
-                onChangeText={(notes) => setEditingTask({ ...editingTask, notes })}
-              />
-              <View style={styles.modalButtons}>
-                <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditingTask(null)}>
-                  <Text style={styles.btnSecondaryText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.btnPrimary} onPress={handleSaveEditedTask}>
-                  <Text style={styles.btnPrimaryText}>Guardar Alterações</Text>
- 
+          {project.notes ? (
+            <View style={styles.notesContainer}>
+    
