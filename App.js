@@ -33,7 +33,7 @@ async function requestNotificationPermissions() {
   }
 }
 
-// --- STORE ZUSTAND ---
+// --- STORE ZUSTAND MONDAY COMPLETO ---
 const useProjectStore = create(
   persist(
     (set) => ({
@@ -160,7 +160,7 @@ const useProjectStore = create(
         })),
     }),
     {
-      name: 'monday-projects-v7',
+      name: 'monday-projects-full-v8',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
@@ -184,7 +184,7 @@ const getStatusColor = (status) => {
   }
 };
 
-// --- TELA PRINCIPAL ---
+// --- TELA PRINCIPAL (APENAS PROJETOS ATIVOS) ---
 function HomeScreen({ navigation }) {
   const { projects, addProject } = useProjectStore();
   const [modalVisible, setModalVisible] = useState(false);
@@ -292,6 +292,7 @@ function HomeScreen({ navigation }) {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
+      {/* MODAL MONDAY COMPLETO DE CRIAÇÃO */}
       <Modal visible={modalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
@@ -308,7 +309,7 @@ function HomeScreen({ navigation }) {
 
               <TextInput
                 style={styles.input}
-                placeholder="Responsável"
+                placeholder="Responsável (ex: Luciano Korn)"
                 placeholderTextColor="#9CA3AF"
                 value={owner}
                 onChangeText={setOwner}
@@ -334,7 +335,7 @@ function HomeScreen({ navigation }) {
 
               <TextInput
                 style={styles.input}
-                placeholder="Prazo"
+                placeholder="Prazo (ex: 20/10/2026)"
                 placeholderTextColor="#9CA3AF"
                 value={dueDate}
                 onChangeText={setDueDate}
@@ -376,7 +377,7 @@ function HomeScreen({ navigation }) {
   );
 }
 
-// --- TELA DE HISTÓRICO ---
+// --- TELA DE HISTÓRICO COM MÉTRICAS ---
 function HistoryScreen({ navigation }) {
   const { projects } = useProjectStore();
   const completedProjects = projects.filter((p) => p.status === 'Concluído');
@@ -429,7 +430,7 @@ function HistoryScreen({ navigation }) {
   );
 }
 
-// --- TELA DE DETALHES ---
+// --- TELA DE DETALHES, EDIÇÃO DE PROJETO E EDIÇÃO DE SUBTAREFAS ---
 function ProjectDetailsScreen({ route, navigation }) {
   const { projectId } = route.params;
   const project = useProjectStore((state) => state.projects.find((p) => p.id === projectId));
@@ -555,6 +556,299 @@ function ProjectDetailsScreen({ route, navigation }) {
               <Text style={styles.notesTitle}>Anotações Gerais / Links:</Text>
               <Text style={styles.notesBody}>{project.notes}</Text>
             </View>
-          ) : null
+          ) : null}
+        </View>
+      )}
 
-            }
+      {/* Alteração de Status */}
+      <Text style={styles.sectionMainTitle}>Status do Projeto</Text>
+      <View style={styles.statusSegmented}>
+        {['Pendente', 'Em Andamento', 'Concluído'].map((st) => (
+          <TouchableOpacity
+            key={st}
+            style={[styles.segmentBtn, project.status === st && { backgroundColor: getStatusColor(st) }]}
+            onPress={() => updateProjectStatus(project.id, st)}
+          >
+            <Text style={[styles.segmentText, project.status === st && { color: '#FFFFFF', fontWeight: 'bold' }]}>{st}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Form de Tarefa */}
+      <Text style={styles.sectionMainTitle}>Adicionar Subtarefa</Text>
+      <View style={styles.cardForm}>
+        <TextInput
+          style={styles.input}
+          placeholder="Descrição da subtarefa *"
+          placeholderTextColor="#9CA3AF"
+          value={taskText}
+          onChangeText={setTaskText}
+        />
+        <View style={styles.formRow}>
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Responsável"
+            placeholderTextColor="#9CA3AF"
+            value={assignee}
+            onChangeText={setAssignee}
+          />
+          <TextInput
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Data (dd/mm/aaaa)"
+            placeholderTextColor="#9CA3AF"
+            value={taskDueDate}
+            onChangeText={setTaskDueDate}
+          />
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Hora do Alerta (ex: 09:00)"
+          placeholderTextColor="#9CA3AF"
+          value={taskDueTime}
+          onChangeText={setTaskDueTime}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Observações da subtarefa"
+          placeholderTextColor="#9CA3AF"
+          value={notes}
+          onChangeText={setNotes}
+        />
+        <TouchableOpacity style={styles.btnPrimary} onPress={handleAddTask}>
+          <Text style={styles.btnPrimaryText}>Adicionar Subtarefa</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Lista de Subtarefas */}
+      <Text style={styles.sectionMainTitle}>Subtarefas / Checklist (Toque para editar)</Text>
+      {project.tasks.length === 0 ? (
+        <Text style={styles.emptyText}>Nenhuma subtarefa cadastrada.</Text>
+      ) : (
+        project.tasks.map((t) => (
+          <View key={t.id} style={styles.taskCardItem}>
+            <TouchableOpacity style={styles.checkCircle} onPress={() => toggleTask(project.id, t.id)}>
+              <Text style={styles.checkIcon}>{t.completed ? '✓' : ''}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={{ flex: 1 }} onPress={() => setEditingTask(t)}>
+              <Text style={[styles.taskTitle, t.completed && styles.taskCompleted]}>{t.text}</Text>
+              <Text style={styles.taskSubtext}>
+                👤 {t.assignee} {t.dueDate ? `| 🗓 ${t.dueDate} às ${t.dueTime || '09:00'}` : ''}
+              </Text>
+              {t.notes ? <Text style={styles.taskNotesText}>📝 {t.notes}</Text> : null}
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => removeTask(project.id, t.id)}>
+              <Text style={styles.deleteIconText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+        ))
+      )}
+
+      <TouchableOpacity
+        style={styles.btnOutlineDanger}
+        onPress={() => {
+          removeProject(project.id);
+          navigation.goBack();
+        }}
+      >
+        <Text style={styles.btnOutlineDangerText}>Remover Projeto</Text>
+      </TouchableOpacity>
+
+      {/* Modal Editar Subtarefa */}
+      {editingTask && (
+        <Modal visible animationType="fade" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Editar Subtarefa</Text>
+
+              <Text style={styles.fieldLabel}>Descrição:</Text>
+              <TextInput
+                style={styles.input}
+                value={editingTask.text}
+                onChangeText={(text) => setEditingTask({ ...editingTask, text })}
+              />
+
+              <Text style={styles.fieldLabel}>Responsável:</Text>
+              <TextInput
+                style={styles.input}
+                value={editingTask.assignee}
+                onChangeText={(assignee) => setEditingTask({ ...editingTask, assignee })}
+              />
+
+              <Text style={styles.fieldLabel}>Prazo:</Text>
+              <TextInput
+                style={styles.input}
+                value={editingTask.dueDate}
+                onChangeText={(dueDate) => setEditingTask({ ...editingTask, dueDate })}
+              />
+
+              <Text style={styles.fieldLabel}>Observações:</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={editingTask.notes}
+                multiline
+                numberOfLines={3}
+                onChangeText={(notes) => setEditingTask({ ...editingTask, notes })}
+              />
+
+              <View style={styles.modalButtons}>
+                <TouchableOpacity style={styles.btnSecondary} onPress={() => setEditingTask(null)}>
+                  <Text style={styles.btnSecondaryText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.btnPrimary} onPress={handleSaveEditedTask}>
+                  <Text style={styles.btnPrimaryText}>Salvar Alterações</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </ScrollView>
+  );
+}
+
+// --- NAVEGAÇÃO CENTRAL ---
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <NavigationContainer>
+        <StatusBar style="dark" />
+        <Stack.Navigator
+          initialRouteName="Home"
+          screenOptions={{
+            headerStyle: { backgroundColor: '#FAFAFA' },
+            headerTintColor: '#1F2937',
+            headerTitleStyle: { fontWeight: '600', fontSize: 17 },
+            headerTitleAlign: 'center',
+            contentStyle: { backgroundColor: '#F3F4F6' },
+          }}
+        >
+          <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Projetos e Tarefas' }} />
+          <Stack.Screen name="History" component={HistoryScreen} options={{ title: 'Histórico de Concluídos' }} />
+          <Stack.Screen name="ProjectDetails" component={ProjectDetailsScreen} options={{ title: 'Painel do Item' }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </SafeAreaProvider>
+  );
+}
+
+// --- ESTILOS VISUAIS TEMA CLARO MINIMALISTA ---
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F3F4F6' },
+  scrollPadding: { padding: 16 },
+  emptyText: { textAlign: 'center', color: '#9CA3AF', marginVertical: 20 },
+
+  metricsCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  metricsCardHistory: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+  },
+  metricsTitle: { fontSize: 15, fontWeight: '600', color: '#374151', marginBottom: 10 },
+  metricsTitleHistory: { fontSize: 15, fontWeight: '600', color: '#065F46', marginBottom: 10 },
+  progressBarBackground: { height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#3B82F6' },
+  progressText: { fontSize: 12, color: '#6B7280', marginTop: 6, textAlign: 'right' },
+  metricsGrid: { flexDirection: 'row', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  metricItem: { flex: 1, alignItems: 'center' },
+  metricValue: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
+  metricValueHistory: { fontSize: 20, fontWeight: '700', color: '#059669' },
+  metricLabel: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionMainTitle: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginVertical: 8 },
+  historyLinkText: { fontSize: 13, color: '#2563EB', fontWeight: '600' },
+
+  card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  cardTitle: { fontSize: 16, fontWeight: '600', color: '#111827', flex: 1 },
+  cardOwnerText: { fontSize: 13, color: '#4B5563', marginTop: 4, fontWeight: '500' },
+  cardDescription: { fontSize: 13, color: '#6B7280', marginTop: 4 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  cardFooterText: { fontSize: 12, color: '#9CA3AF' },
+
+  badgePriority: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  badgePriorityText: { fontSize: 12, fontWeight: 'bold' },
+
+  softBadgeConcluded: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  softBadgeTextConcluded: { fontSize: 12, color: '#065F46', fontWeight: '500' },
+
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    backgroundColor: '#374151',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+  },
+  fabText: { color: '#FFFFFF', fontSize: 26, fontWeight: '300' },
+
+  labelTitle: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#4B5563', marginBottom: 4, marginTop: 4 },
+  prioritySelectorRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  priorityBtn: { flex: 1, paddingVertical: 8, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 6, alignItems: 'center' },
+  priorityBtnText: { color: '#6B7280', fontSize: 13, fontWeight: '500' },
+
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  sectionHeaderTitle: { fontSize: 13, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' },
+  btnEditToggle: { backgroundColor: '#374151', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  btnEditToggleText: { color: '#FFFFFF', fontWeight: '600', fontSize: 12 },
+
+  viewCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 16 },
+  editCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#3B82F6', marginBottom: 16 },
+
+  statusSegmented: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 8, padding: 3, marginVertical: 12 },
+  segmentBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  segmentText: { fontSize: 13, color: '#6B7280' },
+
+  cardForm: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 16 },
+  input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 10, fontSize: 14, color: '#111827', marginBottom: 8 },
+  textArea: { height: 60, textAlignVertical: 'top' },
+  formRow: { flexDirection: 'row', gap: 8 },
+
+  btnPrimary: { backgroundColor: '#374151', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 4 },
+  btnPrimaryText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
+  btnSecondary: { padding: 12 },
+  btnSecondaryText: { color: '#6B7280', fontWeight: '500' },
+
+  taskCardItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  checkCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  checkIcon: { fontSize: 12, color: '#374151', fontWeight: 'bold' },
+  taskTitle: { fontSize: 14, color: '#1F2937', fontWeight: '500' },
+  taskCompleted: { textDecorationLine: 'line-through', color: '#9CA3AF' },
+  taskSubtext: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  taskNotesText: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
+  deleteIconText: { fontSize: 16, color: '#9CA3AF', paddingHorizontal: 8 },
+
+  notesContainer: { backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 8 },
+  notesTitle: { fontSize: 12, fontWeight: 'bold', color: '#374151', marginBottom: 4 },
+  notesBody: { fontSize: 13, color: '#6B7280' },
+
+  btnOutlineDanger: { marginTop: 24, borderWidth: 1, borderColor: '#E5E7EB', padding: 12, borderRadius: 8, alignItems: 'center' },
+  btnOutlineDangerText: { color: '#EF4444', fontSize: 14, fontWeight: '500' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', padding: 20 },
+  modalScrollContent: { justifyContent: 'center', flexGrow: 1 },
+  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20 },
+  modalTitle: { fontSize: 17, fontWeight: '600', color: '#111827', marginBottom: 12 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
+
+  projectTitle: { fontSize: 22, fontWeight: '700', color: '#111827' },
+  projectDescription: { fontSize: 14, color: '#6B7280', marginTop: 4 },
+  projectDueDate: { fontSize: 13, color: '#4B5563', fontWeight: '500', marginTop: 6 },
+});
