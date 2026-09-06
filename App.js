@@ -160,7 +160,7 @@ const useProjectStore = create(
         })),
     }),
     {
-      name: 'monday-projects-full-v5',
+      name: 'monday-projects-full-v6',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
@@ -292,7 +292,6 @@ function HomeScreen({ navigation }) {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* MODAL MONDAY COMPLETO DE CRIAÇÃO */}
       <Modal visible={modalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
@@ -553,4 +552,4 @@ function ProjectDetailsScreen({ route, navigation }) {
 
           {project.notes ? (
             <View style={styles.notesContainer}>
-    
+              <Text style={styles.notesTitle}>A    
