@@ -33,7 +33,7 @@ async function requestNotificationPermissions() {
   }
 }
 
-// --- STORE ZUSTAND MONDAY COMPLETO ---
+// --- STORE ZUSTAND ---
 const useProjectStore = create(
   persist(
     (set) => ({
@@ -160,7 +160,7 @@ const useProjectStore = create(
         })),
     }),
     {
-      name: 'monday-projects-full-v6',
+      name: 'monday-projects-v7',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
@@ -184,7 +184,7 @@ const getStatusColor = (status) => {
   }
 };
 
-// --- TELA PRINCIPAL (APENAS PROJETOS ATIVOS) ---
+// --- TELA PRINCIPAL ---
 function HomeScreen({ navigation }) {
   const { projects, addProject } = useProjectStore();
   const [modalVisible, setModalVisible] = useState(false);
@@ -308,7 +308,7 @@ function HomeScreen({ navigation }) {
 
               <TextInput
                 style={styles.input}
-                placeholder="Responsável (ex: Luciano Korn)"
+                placeholder="Responsável"
                 placeholderTextColor="#9CA3AF"
                 value={owner}
                 onChangeText={setOwner}
@@ -334,7 +334,7 @@ function HomeScreen({ navigation }) {
 
               <TextInput
                 style={styles.input}
-                placeholder="Prazo (ex: 20/10/2026)"
+                placeholder="Prazo"
                 placeholderTextColor="#9CA3AF"
                 value={dueDate}
                 onChangeText={setDueDate}
@@ -376,7 +376,7 @@ function HomeScreen({ navigation }) {
   );
 }
 
-// --- TELA DE HISTÓRICO COM MÉTRICAS ---
+// --- TELA DE HISTÓRICO ---
 function HistoryScreen({ navigation }) {
   const { projects } = useProjectStore();
   const completedProjects = projects.filter((p) => p.status === 'Concluído');
@@ -429,7 +429,7 @@ function HistoryScreen({ navigation }) {
   );
 }
 
-// --- TELA DE DETALHES, EDIÇÃO DE PROJETO E EDIÇÃO DE SUBTAREFAS ---
+// --- TELA DE DETALHES ---
 function ProjectDetailsScreen({ route, navigation }) {
   const { projectId } = route.params;
   const project = useProjectStore((state) => state.projects.find((p) => p.id === projectId));
@@ -552,4 +552,7 @@ function ProjectDetailsScreen({ route, navigation }) {
 
           {project.notes ? (
             <View style={styles.notesContainer}>
-              <Text style={styles.notesTitle}>A    
+              <Text style={styles.notesTitle}>Anotações Gerais / Links:</Text>
+              <Text style={styles.notesBody}>{project.notes}</Text>
+            </View>
+          ) : nul    
