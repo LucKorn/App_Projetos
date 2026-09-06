@@ -7,6 +7,7 @@ import {
   TextInput,
   Modal,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -33,7 +34,7 @@ async function requestNotificationPermissions() {
   }
 }
 
-// --- STORE ZUSTAND MONDAY COMPLETO ---
+// --- STORE ZUSTAND ---
 const useProjectStore = create(
   persist(
     (set) => ({
@@ -160,7 +161,7 @@ const useProjectStore = create(
         })),
     }),
     {
-      name: 'monday-projects-full-v8',
+      name: 'monday-projects-v9',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
@@ -168,23 +169,23 @@ const useProjectStore = create(
 
 const Stack = createNativeStackNavigator();
 
-const getPriorityColor = (priority) => {
+const getPriorityStyle = (priority) => {
   switch (priority) {
-    case 'Alta': return '#EF4444';
-    case 'Média': return '#F59E0B';
-    default: return '#10B981';
+    case 'Alta': return { bg: '#FEE2E2', text: '#DC2626' };
+    case 'Média': return { bg: '#FEF3C7', text: '#D97706' };
+    default: return { bg: '#D1FAE5', text: '#059669' };
   }
 };
 
 const getStatusColor = (status) => {
   switch (status) {
     case 'Concluído': return '#10B981';
-    case 'Em Andamento': return '#3B82F6';
-    default: return '#F59E0B';
+    case 'Em Andamento': return '#2563EB';
+    default: return '#D97706';
   }
 };
 
-// --- TELA PRINCIPAL (APENAS PROJETOS ATIVOS) ---
+// --- TELA PRINCIPAL ---
 function HomeScreen({ navigation }) {
   const { projects, addProject } = useProjectStore();
   const [modalVisible, setModalVisible] = useState(false);
@@ -260,31 +261,34 @@ function HomeScreen({ navigation }) {
         {activeProjects.length === 0 ? (
           <Text style={styles.emptyText}>Nenhum projeto em andamento no momento.</Text>
         ) : (
-          activeProjects.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.card}
-              onPress={() => navigation.navigate('ProjectDetails', { projectId: item.id })}
-              activeOpacity={0.8}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <View style={[styles.badgePriority, { backgroundColor: getPriorityColor(item.priority) + '18' }]}>
-                  <Text style={[styles.badgePriorityText, { color: getPriorityColor(item.priority) }]}>
-                    {item.priority}
-                  </Text>
+          activeProjects.map((item) => {
+            const pStyle = getPriorityStyle(item.priority);
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.card}
+                onPress={() => navigation.navigate('ProjectDetails', { projectId: item.id })}
+                activeOpacity={0.8}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <View style={[styles.badgePriority, { backgroundColor: pStyle.bg }]}>
+                    <Text style={[styles.badgePriorityText, { color: pStyle.text }]}>
+                      {item.priority}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
-              {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
+                <Text style={styles.cardOwnerText}>👤 Responsável: {item.owner}</Text>
+                {item.description ? <Text style={styles.cardDescription}>{item.description}</Text> : null}
 
-              <View style={styles.cardFooter}>
-                <Text style={styles.cardFooterText}>🗓 Prazo: {item.dueDate}</Text>
-                <Text style={styles.cardFooterText}>{item.tasks.length} subtarefas</Text>
-              </View>
-            </TouchableOpacity>
-          ))
+                <View style={styles.cardFooter}>
+                  <Text style={styles.cardFooterText}>🗓 Prazo: {item.dueDate}</Text>
+                  <Text style={styles.cardFooterText}>{item.tasks.length} subtarefas</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
       </ScrollView>
 
@@ -292,7 +296,6 @@ function HomeScreen({ navigation }) {
         <Text style={styles.fabText}>+</Text>
       </TouchableOpacity>
 
-      {/* MODAL MONDAY COMPLETO DE CRIAÇÃO */}
       <Modal visible={modalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={styles.modalScrollContent}>
@@ -302,41 +305,50 @@ function HomeScreen({ navigation }) {
               <TextInput
                 style={styles.input}
                 placeholder="Nome do Projeto *"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#6B7280"
                 value={title}
                 onChangeText={setTitle}
               />
 
               <TextInput
                 style={styles.input}
-                placeholder="Responsável (ex: Luciano Korn)"
-                placeholderTextColor="#9CA3AF"
+                placeholder="Responsável"
+                placeholderTextColor="#6B7280"
                 value={owner}
                 onChangeText={setOwner}
               />
 
               <Text style={styles.labelTitle}>Prioridade:</Text>
               <View style={styles.prioritySelectorRow}>
-                {['Baixa', 'Média', 'Alta'].map((p) => (
-                  <TouchableOpacity
-                    key={p}
-                    style={[
-                      styles.priorityBtn,
-                      priority === p && { backgroundColor: getPriorityColor(p), borderColor: getPriorityColor(p) },
-                    ]}
-                    onPress={() => setPriority(p)}
-                  >
-                    <Text style={[styles.priorityBtnText, priority === p && { color: '#FFFFFF', fontWeight: 'bold' }]}>
-                      {p}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {['Baixa', 'Média', 'Alta'].map((p) => {
+                  const pStyle = getPriorityStyle(p);
+                  const isSelected = priority === p;
+                  return (
+                    <TouchableOpacity
+                      key={p}
+                      style={[
+                        styles.priorityBtn,
+                        isSelected && { backgroundColor: pStyle.bg, borderColor: pStyle.text },
+                      ]}
+                      onPress={() => setPriority(p)}
+                    >
+                      <Text
+                        style={[
+                          styles.priorityBtnText,
+                          isSelected && { color: pStyle.text, fontWeight: 'bold' },
+                        ]}
+                      >
+                        {p}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               <TextInput
                 style={styles.input}
                 placeholder="Prazo (ex: 20/10/2026)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#6B7280"
                 value={dueDate}
                 onChangeText={setDueDate}
               />
@@ -344,7 +356,7 @@ function HomeScreen({ navigation }) {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Descrição resumida"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#6B7280"
                 multiline
                 numberOfLines={2}
                 value={description}
@@ -354,7 +366,7 @@ function HomeScreen({ navigation }) {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Anotações Gerais / Links / Observações"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor="#6B7280"
                 multiline
                 numberOfLines={3}
                 value={notes}
@@ -377,7 +389,7 @@ function HomeScreen({ navigation }) {
   );
 }
 
-// --- TELA DE HISTÓRICO COM MÉTRICAS ---
+// --- TELA DE HISTÓRICO ---
 function HistoryScreen({ navigation }) {
   const { projects } = useProjectStore();
   const completedProjects = projects.filter((p) => p.status === 'Concluído');
@@ -430,7 +442,7 @@ function HistoryScreen({ navigation }) {
   );
 }
 
-// --- TELA DE DETALHES, EDIÇÃO DE PROJETO E EDIÇÃO DE SUBTAREFAS ---
+// --- TELA DE DETALHES ---
 function ProjectDetailsScreen({ route, navigation }) {
   const { projectId } = route.params;
   const project = useProjectStore((state) => state.projects.find((p) => p.id === projectId));
@@ -479,6 +491,24 @@ function ProjectDetailsScreen({ route, navigation }) {
     }
   };
 
+  const confirmDeleteProject = () => {
+    Alert.alert(
+      'Remover Projeto',
+      'Tem certeza que deseja apagar este projeto e todas as suas tarefas?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar',
+          style: 'destructive',
+          onPress: () => {
+            removeProject(project.id);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
+
   const handleAddTask = () => {
     if (taskText.trim()) {
       addTask(project.id, taskText.trim(), assignee.trim(), taskDueDate.trim(), taskDueTime.trim(), notes.trim());
@@ -501,17 +531,21 @@ function ProjectDetailsScreen({ route, navigation }) {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollPadding}>
       <View style={styles.headerRow}>
         <Text style={styles.sectionHeaderTitle}>Painel do Item</Text>
-        <TouchableOpacity
-          style={styles.btnEditToggle}
-          onPress={() => {
-            if (isEditingProject) handleSaveProjectEdits();
-            else setIsEditingProject(true);
-          }}
-        >
-          <Text style={styles.btnEditToggleText}>
-            {isEditingProject ? 'Salvar Projeto' : 'Editar Projeto'}
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.headerActionsGroup}>
+          {!isEditingProject ? (
+            <>
+              <TouchableOpacity
+                style={styles.btnEditToggle}
+                onPress={() => setIsEditingProject(true)}
+              >
+                <Text style={styles.btnEditToggleText}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnTrashIcon} onPress={confirmDeleteProject}>
+                <Text style={styles.btnTrashIconText}>🗑️</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
+        </View>
       </View>
 
       {isEditingProject ? (
@@ -524,15 +558,22 @@ function ProjectDetailsScreen({ route, navigation }) {
 
           <Text style={styles.fieldLabel}>Prioridade:</Text>
           <View style={styles.prioritySelectorRow}>
-            {['Baixa', 'Média', 'Alta'].map((p) => (
-              <TouchableOpacity
-                key={p}
-                style={[styles.priorityBtn, projPriority === p && { backgroundColor: getPriorityColor(p), borderColor: getPriorityColor(p) }]}
-                onPress={() => setProjPriority(p)}
-              >
-                <Text style={[styles.priorityBtnText, projPriority === p && { color: '#FFF', fontWeight: 'bold' }]}>{p}</Text>
-              </TouchableOpacity>
-            ))}
+            {['Baixa', 'Média', 'Alta'].map((p) => {
+              const pStyle = getPriorityStyle(p);
+              const isSelected = projPriority === p;
+              return (
+                <TouchableOpacity
+                  key={p}
+                  style={[
+                    styles.priorityBtn,
+                    isSelected && { backgroundColor: pStyle.bg, borderColor: pStyle.text },
+                  ]}
+                  onPress={() => setProjPriority(p)}
+                >
+                  <Text style={[styles.priorityBtnText, isSelected && { color: pStyle.text, fontWeight: 'bold' }]}>{p}</Text>
+                </TouchableOpacity>
+              );
+                                                     })}
           </View>
 
           <Text style={styles.fieldLabel}>Prazo Geral:</Text>
@@ -543,6 +584,15 @@ function ProjectDetailsScreen({ route, navigation }) {
 
           <Text style={styles.fieldLabel}>Anotações Gerais / Links:</Text>
           <TextInput style={[styles.input, styles.textArea]} value={projNotes} onChangeText={setProjNotes} multiline numberOfLines={3} />
+
+          <View style={styles.editActionRow}>
+            <TouchableOpacity style={styles.btnSecondary} onPress={() => setIsEditingProject(false)}>
+              <Text style={styles.btnSecondaryText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleSaveProjectEdits}>
+              <Text style={styles.btnPrimaryText}>Salvar Edição</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.viewCard}>
@@ -560,7 +610,6 @@ function ProjectDetailsScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Alteração de Status */}
       <Text style={styles.sectionMainTitle}>Status do Projeto</Text>
       <View style={styles.statusSegmented}>
         {['Pendente', 'Em Andamento', 'Concluído'].map((st) => (
@@ -574,13 +623,12 @@ function ProjectDetailsScreen({ route, navigation }) {
         ))}
       </View>
 
-      {/* Form de Tarefa */}
       <Text style={styles.sectionMainTitle}>Adicionar Subtarefa</Text>
       <View style={styles.cardForm}>
         <TextInput
           style={styles.input}
           placeholder="Descrição da subtarefa *"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#6B7280"
           value={taskText}
           onChangeText={setTaskText}
         />
@@ -588,14 +636,14 @@ function ProjectDetailsScreen({ route, navigation }) {
           <TextInput
             style={[styles.input, { flex: 1 }]}
             placeholder="Responsável"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#6B7280"
             value={assignee}
             onChangeText={setAssignee}
           />
           <TextInput
             style={[styles.input, { flex: 1 }]}
             placeholder="Data (dd/mm/aaaa)"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor="#6B7280"
             value={taskDueDate}
             onChangeText={setTaskDueDate}
           />
@@ -603,14 +651,14 @@ function ProjectDetailsScreen({ route, navigation }) {
         <TextInput
           style={styles.input}
           placeholder="Hora do Alerta (ex: 09:00)"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#6B7280"
           value={taskDueTime}
           onChangeText={setTaskDueTime}
         />
         <TextInput
           style={styles.input}
           placeholder="Observações da subtarefa"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor="#6B7280"
           value={notes}
           onChangeText={setNotes}
         />
@@ -619,7 +667,6 @@ function ProjectDetailsScreen({ route, navigation }) {
         </TouchableOpacity>
       </View>
 
-      {/* Lista de Subtarefas */}
       <Text style={styles.sectionMainTitle}>Subtarefas / Checklist (Toque para editar)</Text>
       {project.tasks.length === 0 ? (
         <Text style={styles.emptyText}>Nenhuma subtarefa cadastrada.</Text>
@@ -645,17 +692,6 @@ function ProjectDetailsScreen({ route, navigation }) {
         ))
       )}
 
-      <TouchableOpacity
-        style={styles.btnOutlineDanger}
-        onPress={() => {
-          removeProject(project.id);
-          navigation.goBack();
-        }}
-      >
-        <Text style={styles.btnOutlineDangerText}>Remover Projeto</Text>
-      </TouchableOpacity>
-
-      {/* Modal Editar Subtarefa */}
       {editingTask && (
         <Modal visible animationType="fade" transparent>
           <View style={styles.modalOverlay}>
@@ -708,7 +744,7 @@ function ProjectDetailsScreen({ route, navigation }) {
   );
 }
 
-// --- NAVEGAÇÃO CENTRAL ---
+// --- APP PRINCIPAL ---
 export default function App() {
   return (
     <SafeAreaProvider>
@@ -719,7 +755,7 @@ export default function App() {
           screenOptions={{
             headerStyle: { backgroundColor: '#FAFAFA' },
             headerTintColor: '#1F2937',
-            headerTitleStyle: { fontWeight: '600', fontSize: 17 },
+            headerTitleStyle: { fontWeight: '700', fontSize: 19 },
             headerTitleAlign: 'center',
             contentStyle: { backgroundColor: '#F3F4F6' },
           }}
@@ -733,122 +769,197 @@ export default function App() {
   );
 }
 
-// --- ESTILOS VISUAIS TEMA CLARO MINIMALISTA ---
+// --- ESTILOS COM ELEVAÇÃO E CONTRASTE MELHORADOS ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F3F4F6' },
   scrollPadding: { padding: 16 },
-  emptyText: { textAlign: 'center', color: '#9CA3AF', marginVertical: 20 },
+  emptyText: { textAlign: 'center', color: '#4B5563', marginVertical: 20, fontSize: 15 },
 
   metricsCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
   metricsCardHistory: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: '#D1FAE5',
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
-  metricsTitle: { fontSize: 15, fontWeight: '600', color: '#374151', marginBottom: 10 },
-  metricsTitleHistory: { fontSize: 15, fontWeight: '600', color: '#065F46', marginBottom: 10 },
-  progressBarBackground: { height: 8, backgroundColor: '#E5E7EB', borderRadius: 4, overflow: 'hidden' },
-  progressBarFill: { height: '100%', backgroundColor: '#3B82F6' },
-  progressText: { fontSize: 12, color: '#6B7280', marginTop: 6, textAlign: 'right' },
-  metricsGrid: { flexDirection: 'row', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  metricsTitle: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 12 },
+  metricsTitleHistory: { fontSize: 17, fontWeight: '700', color: '#065F46', marginBottom: 12 },
+  progressBarBackground: { height: 10, backgroundColor: '#E5E7EB', borderRadius: 5, overflow: 'hidden' },
+  progressBarFill: { height: '100%', backgroundColor: '#2563EB' },
+  progressText: { fontSize: 13, color: '#374151', marginTop: 8, textAlign: 'right', fontWeight: '500' },
+  metricsGrid: { flexDirection: 'row', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
   metricItem: { flex: 1, alignItems: 'center' },
-  metricValue: { fontSize: 18, fontWeight: '700', color: '#1F2937' },
-  metricValueHistory: { fontSize: 20, fontWeight: '700', color: '#059669' },
-  metricLabel: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  metricValue: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  metricValueHistory: { fontSize: 22, fontWeight: '800', color: '#059669' },
+  metricLabel: { fontSize: 13, color: '#4B5563', marginTop: 2, fontWeight: '500' },
 
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionMainTitle: { fontSize: 16, fontWeight: '600', color: '#1F2937', marginVertical: 8 },
-  historyLinkText: { fontSize: 13, color: '#2563EB', fontWeight: '600' },
+  sectionMainTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginVertical: 10 },
+  historyLinkText: { fontSize: 14, color: '#2563EB', fontWeight: '700' },
 
-  card: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB' },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { fontSize: 16, fontWeight: '600', color: '#111827', flex: 1 },
-  cardOwnerText: { fontSize: 13, color: '#4B5563', marginTop: 4, fontWeight: '500' },
-  cardDescription: { fontSize: 13, color: '#6B7280', marginTop: 4 },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
-  cardFooterText: { fontSize: 12, color: '#9CA3AF' },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: '#111827', flex: 1 },
+  cardOwnerText: { fontSize: 14, color: '#374151', marginTop: 6, fontWeight: '600' },
+  cardDescription: { fontSize: 14, color: '#4B5563', marginTop: 4, lineHeight: 20 },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  cardFooterText: { fontSize: 13, color: '#4B5563', fontWeight: '500' },
 
-  badgePriority: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  badgePriorityText: { fontSize: 12, fontWeight: 'bold' },
+  badgePriority: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  badgePriorityText: { fontSize: 13, fontWeight: '800' },
 
-  softBadgeConcluded: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-  softBadgeTextConcluded: { fontSize: 12, color: '#065F46', fontWeight: '500' },
+  softBadgeConcluded: { backgroundColor: '#D1FAE5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  softBadgeTextConcluded: { fontSize: 13, color: '#065F46', fontWeight: '700' },
 
   fab: {
     position: 'absolute',
     right: 20,
     bottom: 20,
-    backgroundColor: '#374151',
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    backgroundColor: '#1F2937',
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 4,
+    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
   },
-  fabText: { color: '#FFFFFF', fontSize: 26, fontWeight: '300' },
+  fabText: { color: '#FFFFFF', fontSize: 28, fontWeight: '400' },
 
-  labelTitle: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#4B5563', marginBottom: 4, marginTop: 4 },
+  labelTitle: { fontSize: 14, fontWeight: '700', color: '#111827', marginBottom: 6 },
+  fieldLabel: { fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 4, marginTop: 6 },
   prioritySelectorRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  priorityBtn: { flex: 1, paddingVertical: 8, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 6, alignItems: 'center' },
-  priorityBtnText: { color: '#6B7280', fontSize: 13, fontWeight: '500' },
+  priorityBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#D1D5DB', borderRadius: 8, alignItems: 'center' },
+  priorityBtnText: { color: '#4B5563', fontSize: 14, fontWeight: '600' },
 
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  sectionHeaderTitle: { fontSize: 13, fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' },
-  btnEditToggle: { backgroundColor: '#374151', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
-  btnEditToggleText: { color: '#FFFFFF', fontWeight: '600', fontSize: 12 },
+  sectionHeaderTitle: { fontSize: 14, fontWeight: '800', color: '#4B5563', textTransform: 'uppercase' },
+  headerActionsGroup: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  btnEditToggle: { backgroundColor: '#2563EB', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  btnEditToggleText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  btnTrashIcon: { backgroundColor: '#FEE2E2', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  btnTrashIconText: { fontSize: 16 },
 
-  viewCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 16 },
-  editCard: { backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#3B82F6', marginBottom: 16 },
+  viewCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
+    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  editCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#2563EB',
+    marginBottom: 16,
+    elevation: 4,
+  },
+  editActionRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
 
-  statusSegmented: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 8, padding: 3, marginVertical: 12 },
-  segmentBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-  segmentText: { fontSize: 13, color: '#6B7280' },
+  statusSegmented: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 10, padding: 4, marginVertical: 12 },
+  segmentBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  segmentText: { fontSize: 14, color: '#4B5563', fontWeight: '600' },
 
-  cardForm: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 16 },
-  input: { backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 10, fontSize: 14, color: '#111827', marginBottom: 8 },
-  textArea: { height: 60, textAlignVertical: 'top' },
+  cardForm: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 16,
+    elevation: 2,
+  },
+  input: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: '#111827',
+    marginBottom: 10,
+  },
+  textArea: { height: 70, textAlignVertical: 'top' },
   formRow: { flexDirection: 'row', gap: 8 },
 
-  btnPrimary: { backgroundColor: '#374151', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 4 },
-  btnPrimaryText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
-  btnSecondary: { padding: 12 },
-  btnSecondaryText: { color: '#6B7280', fontWeight: '500' },
+  btnPrimary: { backgroundColor: '#1F2937', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 4 },
+  btnPrimaryText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+  btnSecondary: { padding: 14, borderRadius: 8, alignItems: 'center' },
+  btnSecondaryText: { color: '#4B5563', fontWeight: '700', fontSize: 15 },
 
-  taskCardItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 12, borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  checkCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, borderColor: '#9CA3AF', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  checkIcon: { fontSize: 12, color: '#374151', fontWeight: 'bold' },
-  taskTitle: { fontSize: 14, color: '#1F2937', fontWeight: '500' },
+  taskCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 2,
+  },
+  checkCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#6B7280', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  checkIcon: { fontSize: 13, color: '#1F2937', fontWeight: 'bold' },
+  taskTitle: { fontSize: 15, color: '#111827', fontWeight: '600' },
   taskCompleted: { textDecorationLine: 'line-through', color: '#9CA3AF' },
-  taskSubtext: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  taskNotesText: { fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  deleteIconText: { fontSize: 16, color: '#9CA3AF', paddingHorizontal: 8 },
+  taskSubtext: { fontSize: 13, color: '#374151', marginTop: 3, fontWeight: '500' },
+  taskNotesText: { fontSize: 12, color: '#4B5563', marginTop: 3 },
+  deleteIconText: { fontSize: 18, color: '#9CA3AF', paddingHorizontal: 8 },
 
-  notesContainer: { backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 8 },
-  notesTitle: { fontSize: 12, fontWeight: 'bold', color: '#374151', marginBottom: 4 },
-  notesBody: { fontSize: 13, color: '#6B7280' },
+  notesContainer: { backgroundColor: '#F9FAFB', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', marginTop: 10 },
+  notesTitle: { fontSize: 13, fontWeight: '700', color: '#111827', marginBottom: 4 },
+  notesBody: { fontSize: 14, color: '#374151', lineHeight: 20 },
 
-  btnOutlineDanger: { marginTop: 24, borderWidth: 1, borderColor: '#E5E7EB', padding: 12, borderRadius: 8, alignItems: 'center' },
-  btnOutlineDangerText: { color: '#EF4444', fontSize: 14, fontWeight: '500' },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', padding: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 20 },
   modalScrollContent: { justifyContent: 'center', flexGrow: 1 },
-  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 12, padding: 20 },
-  modalTitle: { fontSize: 17, fontWeight: '600', color: '#111827', marginBottom: 12 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
+  modalContent: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 22, elevation: 6 },
+  modalTitle: { fontSize: 19, fontWeight: '700', color: '#111827', marginBottom: 14 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 14 },
 
-  projectTitle: { fontSize: 22, fontWeight: '700', color: '#111827' },
-  projectDescription: { fontSize: 14, color: '#6B7280', marginTop: 4 },
-  projectDueDate: { fontSize: 13, color: '#4B5563', fontWeight: '500', marginTop: 6 },
+  projectTitle: { fontSize: 24, fontWeight: '800', color: '#111827' },
+  projectDescription: { fontSize: 15, color: '#374151', marginTop: 6, lineHeight: 22 },
+  projectDueDate: { fontSize: 14, color: '#111827', fontWeight: '600', marginTop: 8 },
 });
+        
