@@ -555,4 +555,6 @@ function ProjectDetailsScreen({ route, navigation }) {
               <Text style={styles.notesTitle}>Anotações Gerais / Links:</Text>
               <Text style={styles.notesBody}>{project.notes}</Text>
             </View>
-          ) : nul    
+          ) : null
+
+            }
